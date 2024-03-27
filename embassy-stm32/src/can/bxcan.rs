@@ -11,7 +11,7 @@ use futures::FutureExt;
 
 use crate::gpio::sealed::AFType;
 use crate::interrupt::typelevel::Interrupt;
-use crate::pac::can::vals::{Ide, Lec};
+use crate::pac::can::vals::{Ide, Lec, Rtr};
 use crate::rcc::RccPeripheral;
 use crate::time::Hertz;
 use crate::{interrupt, peripherals, Peripheral};
@@ -281,12 +281,18 @@ impl<'d, T: Instance> Can<'d, T> {
                 let id = (stid << 18) | (exid);
                 Id::from(ExtendedId::new_unchecked(id))
             };
-            let data_len = fifo.rdtr().read().dlc() as usize;
+            let data_len = fifo.rdtr().read().dlc();
             let mut data: [u8; 8] = [0; 8];
             data[0..4].copy_from_slice(&fifo.rdlr().read().0.to_ne_bytes());
             data[4..8].copy_from_slice(&fifo.rdhr().read().0.to_ne_bytes());
 
-            let frame = Frame::new_data(id, Data::new(&data[0..data_len]).unwrap());
+            let frame = if rir.rtr() == Rtr::REMOTE {
+                Frame::new_remote(id, data_len)
+            } else {
+                let data_len = data_len as usize;
+                Frame::new_data(id, Data::new(&data[0..data_len]).unwrap())
+            };
+
             let envelope = Envelope {
                 #[cfg(feature = "time")]
                 ts,
