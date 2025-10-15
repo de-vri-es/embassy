@@ -311,6 +311,8 @@ impl<'a, T: Instance> Drop for SequencePwm<'a, T> {
 }
 
 /// Configuration for the PWM as a whole.
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 #[non_exhaustive]
 pub struct Config {
     /// Selects up mode or up-and-down mode for the counter
@@ -348,7 +350,8 @@ impl Default for Config {
 
 /// Configuration per sequence
 #[non_exhaustive]
-#[derive(Clone)]
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub struct SequenceConfig {
     /// Number of PWM periods to delay between each sequence sample
     pub refresh: u32,
@@ -367,6 +370,8 @@ impl Default for SequenceConfig {
 
 /// A composition of a sequence buffer and its configuration.
 #[non_exhaustive]
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub struct Sequence<'s> {
     /// The words comprising the sequence. Must not exceed 32767 words.
     pub words: &'s [u16],
@@ -518,6 +523,7 @@ impl<'d, 's, T: Instance> Drop for Sequencer<'d, 's, T> {
 
 /// How many times to run a single sequence
 #[derive(Debug, Eq, PartialEq, Clone, Copy)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum SingleSequenceMode {
     /// Run a single sequence n Times total.
     Times(u16),
@@ -527,6 +533,7 @@ pub enum SingleSequenceMode {
 
 /// Which sequence to start a loop with
 #[derive(Debug, Eq, PartialEq, Clone, Copy)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum StartSequence {
     /// Start with Sequence 0
     Zero,
@@ -536,6 +543,7 @@ pub enum StartSequence {
 
 /// How many loops to run two sequences
 #[derive(Debug, Eq, PartialEq, Clone, Copy)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum SequenceMode {
     /// Run two sequences n loops i.e. (n * (seq0 + seq1.unwrap_or(seq0)))
     Loop(u16),
@@ -545,6 +553,7 @@ pub enum SequenceMode {
 
 /// PWM Base clock is system clock (16MHz) divided by prescaler
 #[derive(Debug, Eq, PartialEq, Clone, Copy)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum Prescaler {
     /// Divide by 1
     Div1,
@@ -566,6 +575,7 @@ pub enum Prescaler {
 
 /// How the sequence values are distributed across the channels
 #[derive(Debug, Eq, PartialEq, Clone, Copy)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum SequenceLoad {
     /// Provided sequence will be used across all channels
     Common,
@@ -582,6 +592,7 @@ pub enum SequenceLoad {
 
 /// Selects up mode or up-and-down mode for the counter
 #[derive(Debug, Eq, PartialEq, Clone, Copy)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum CounterMode {
     /// Up counter (edge-aligned PWM duty cycle)
     Up,
