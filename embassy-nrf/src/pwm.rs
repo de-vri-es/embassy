@@ -17,7 +17,7 @@ use crate::{interrupt, pac};
 /// to simply set a duty cycle across up to four channels.
 pub struct SimplePwm<'d, T: Instance> {
     _peri: Peri<'d, T>,
-    duty: [u16; 4],
+    duty: [DutyCycle; 4],
     ch0: Option<Peri<'d, AnyPin>>,
     ch1: Option<Peri<'d, AnyPin>>,
     ch2: Option<Peri<'d, AnyPin>>,
@@ -600,6 +600,84 @@ pub enum CounterMode {
     UpAndDown,
 }
 
+/// Duty value and polarity for a single channel.
+///
+/// If the channel has inverted polarity, the output is set high as long as the counter is below the duty value.
+#[repr(transparent)]
+#[derive(Eq, PartialEq, Clone, Copy)]
+pub struct DutyCycle {
+    /// The raw duty cycle valuea.
+    ///
+    /// This has the duty cycle in the lower 15 bits.
+    /// The highest bit indicates that the duty cycle has inverted polarity.
+    raw: u16,
+}
+
+impl DutyCycle {
+    /// Make a new duty value with normal polarity.
+    ///
+    /// The value is truncated to 15 bits.
+    ///
+    /// The output is set high if the counter is at or above the duty value.
+    pub const fn normal(value: u16) -> Self {
+        let raw = value & 0x7FFF;
+        Self { raw }
+    }
+
+    /// Make a new duty cycle with inverted polarity.
+    ///
+    /// The value is truncated to 15 bits.
+    ///
+    /// The output is set high if the counter is below the duty value.
+    pub const fn inverted(value: u16) -> Self {
+        let raw = value | 0x8000;
+        Self { raw }
+    }
+
+    /// Adjust the polarity of the duty cycle (returns a new object).
+    #[must_use = "this function return a new object, it does not modify self"]
+    pub const fn with_inverted(self, inverted_polarity: bool) -> Self {
+        if inverted_polarity {
+            Self::inverted(self.value())
+        } else {
+            Self::normal(self.value())
+        }
+    }
+
+    /// Gets the 15-bit value of the duty cycle.
+    pub const fn value(&self) -> u16 {
+        self.raw & 0x7FFF
+    }
+
+    /// Checks if the duty period has inverted polarity.
+    ///
+    /// If the channel has inverted polarity, the output is set high as long as the counter is below the duty value.
+    pub const fn is_inverted(&self) -> bool {
+        self.raw & 0x8000 != 0
+    }
+}
+
+impl core::fmt::Debug for DutyCycle {
+    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+        f.debug_struct("DutyCycle")
+            .field("value", &self.value())
+            .field("inverted", &self.is_inverted())
+            .finish()
+    }
+}
+
+#[cfg(feature = "defmt")]
+impl defmt::Format for DutyCycle {
+    fn format(&self, f: defmt::Formatter) {
+        defmt::write!(
+            f,
+            "DutyCycle {{ value: {=u16}, inverted: {=bool} }}",
+            self.value(),
+            self.is_inverted()
+        );
+    }
+}
+
 impl<'d, T: Instance> SimplePwm<'d, T> {
     /// Create a new 1-channel PWM
     #[allow(unused_unsafe)]
@@ -672,7 +750,7 @@ impl<'d, T: Instance> SimplePwm<'d, T> {
             ch1,
             ch2,
             ch3,
-            duty: [0; 4],
+            duty: [const { DutyCycle::normal(0) }; 4],
         };
 
         // Disable all interrupts
@@ -720,16 +798,16 @@ impl<'d, T: Instance> SimplePwm<'d, T> {
         r.enable().write(|w| w.set_enable(false));
     }
 
-    /// Returns the current duty of the channel
-    pub fn duty(&self, channel: usize) -> u16 {
+    /// Returns the current duty of the channel.
+    pub fn duty(&self, channel: usize) -> DutyCycle {
         self.duty[channel]
     }
 
     /// Sets duty cycle (15 bit) for a PWM channel.
-    pub fn set_duty(&mut self, channel: usize, duty: u16) {
+    pub fn set_duty(&mut self, channel: usize, duty: DutyCycle) {
         let r = T::regs();
 
-        self.duty[channel] = duty & 0x7FFF;
+        self.duty[channel] = duty;
 
         // reload ptr in case self was moved
         r.seq(0).ptr().write_value((self.duty).as_ptr() as u32);
